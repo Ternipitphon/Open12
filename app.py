@@ -30,9 +30,8 @@ def generate_content_with_retry(model, prompt, retries=5, backoff_in_seconds=2):
 # --- Route สำหรับหน้าแรก (แก้ปัญหา 404 Not Found) ---
 @app.route('/')
 def index():
-    # เสิร์ฟไฟล์ open.html เป็นหน้าแรกของเว็บ
-    # หากไฟล์ HTML ของคุณชื่ออื่น ให้เปลี่ยนชื่อไฟล์ตรงนี้ให้ตรงกัน
-    return send_from_directory('.', 'open.html')
+    # เสิร์ฟไฟล์ Open.html เป็นหน้าแรกของเว็บ (ต้องสะกดตัวพิมพ์ใหญ่-เล็กให้ตรงกับชื่อไฟล์จริงเป๊ะ)
+    return send_from_directory('.', 'Open.html')
 
 
 @app.route('/api/analyze', methods=['POST'])
