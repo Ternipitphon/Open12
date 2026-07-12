@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════
-   AgriFuture AI — Chat JS  v2.0
+   AgriFuture AI — Chat JS  v3.0
    ══════════════════════════════════════════ */
 
 const API_URL = 'http://localhost:5000/chat';
@@ -27,6 +27,7 @@ const toastMsg      = document.getElementById('toastMsg');
 /* ── State ── */
 let conversationHistory = [];
 let chatSessions        = JSON.parse(localStorage.getItem('agri_chat_sessions') || '[]');
+let currentSessionId    = null; // id of the session currently open, null = unsaved new chat
 let lastAIBubble        = null; // for regenerate
 let toastTimer          = null;
 
@@ -47,12 +48,29 @@ themeToggle.addEventListener('click', () => {
 
 /* ══════════════════════════════════════════
    SIDEBAR TOGGLE (mobile)
+   ──────────────────────────────────────────
+   Bug fix: tapping the hamburger icon (the <i>
+   inside the button) used to fire the button's
+   click AND bubble up to the document listener
+   in the same tick. Since e.target was the <i>
+   (not the button, and not inside the sidebar),
+   the document listener immediately closed the
+   sidebar right after it opened — so it took two
+   taps to see it stay open. Fixing by stopping
+   propagation on the toggle button itself and by
+   checking sidebarToggle.contains(e.target)
+   (which also covers the icon) in the document
+   listener.
    ══════════════════════════════════════════ */
-sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+sidebarToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sidebar.classList.toggle('open');
+});
 document.addEventListener('click', (e) => {
     if (window.innerWidth <= 768 &&
+        sidebar.classList.contains('open') &&
         !sidebar.contains(e.target) &&
-        e.target !== sidebarToggle) {
+        !sidebarToggle.contains(e.target)) {
         sidebar.classList.remove('open');
     }
 });
@@ -103,12 +121,19 @@ clearInputBtn.addEventListener('click', () => {
 });
 
 /* ══════════════════════════════════════════
-   CLEAR CHAT
+   CLEAR CHAT (deletes the current chat entirely)
    ══════════════════════════════════════════ */
 clearChatBtn.addEventListener('click', () => {
     if (!conversationHistory.length) return;
     if (!confirm('ล้างข้อความในแชทนี้ทั้งหมด?')) return;
+
+    if (currentSessionId) {
+        chatSessions = chatSessions.filter(s => s.id !== currentSessionId);
+        localStorage.setItem('agri_chat_sessions', JSON.stringify(chatSessions));
+    }
+    currentSessionId = null;
     resetChat();
+    renderHistory(historySearch.value);
     showToast('ล้างแชทแล้ว', 'fa-solid fa-trash-can');
 });
 
@@ -122,14 +147,26 @@ function resetChat() {
     document.getElementById('chatTitle').textContent = 'AgriFuture AI Chat';
 }
 
-/* ── New Chat ── */
+/* ══════════════════════════════════════════
+   NEW CHAT
+   ──────────────────────────────────────────
+   The chat currently on screen is saved first
+   (if it has any messages), then a fresh, empty
+   chat is started. The previous chat stays in
+   the history list and can be reopened at any
+   time — nothing is lost.
+   ══════════════════════════════════════════ */
 newChatBtn.addEventListener('click', () => {
+    persistCurrentSession();
+    currentSessionId = null;
     resetChat();
     chatInput.value = '';
     chatInput.style.height = 'auto';
     charCounter.textContent = `0 / ${MAX_CHARS}`;
     charCounter.className = 'char-counter';
     clearInputBtn.classList.remove('visible');
+    renderHistory(historySearch.value);
+    if (window.innerWidth <= 768) sidebar.classList.remove('open');
 });
 
 /* ══════════════════════════════════════════
@@ -181,7 +218,7 @@ async function handleSend() {
             const reply = data.reply;
             lastAIBubble = appendMessage('ai', reply);
             conversationHistory.push({ role: 'assistant', content: reply });
-            saveChatSession(text);
+            persistCurrentSession();
         }
 
     } catch (err) {
@@ -226,6 +263,7 @@ async function regenerateLastResponse() {
         } else {
             lastAIBubble = appendMessage('ai', data.reply);
             conversationHistory.push({ role: 'assistant', content: data.reply });
+            persistCurrentSession();
         }
     } catch (err) {
         removeTyping(typingId);
@@ -461,20 +499,78 @@ function showToast(msg = 'คัดลอกแล้ว', icon = 'fa-solid fa-c
 
 /* ══════════════════════════════════════════
    CHAT SESSION HISTORY
+   ──────────────────────────────────────────
+   Each session now stores its full message
+   list (not just a title), so switching
+   between chats restores the whole
+   conversation instead of only its name.
    ══════════════════════════════════════════ */
-function saveChatSession(firstMessage) {
-    if (conversationHistory.length === 2) {
-        const title = firstMessage.substring(0, 42) + (firstMessage.length > 42 ? '…' : '');
+
+// Save/update the chat currently on screen into chatSessions + localStorage.
+function persistCurrentSession() {
+    if (!conversationHistory.length) return;
+
+    const firstUserMsg = conversationHistory.find(m => m.role === 'user');
+    const autoTitle = firstUserMsg
+        ? firstUserMsg.content.substring(0, 42) + (firstUserMsg.content.length > 42 ? '…' : '')
+        : 'แชทใหม่';
+    const nowLabel = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+
+    if (currentSessionId) {
+        const idx = chatSessions.findIndex(s => s.id === currentSessionId);
+        if (idx !== -1) {
+            chatSessions[idx].messages = JSON.parse(JSON.stringify(conversationHistory));
+            chatSessions[idx].time = nowLabel;
+            const [session] = chatSessions.splice(idx, 1);
+            chatSessions.unshift(session);
+        } else {
+            chatSessions.unshift({
+                id: currentSessionId, title: autoTitle, time: nowLabel,
+                messages: JSON.parse(JSON.stringify(conversationHistory))
+            });
+        }
+    } else {
+        currentSessionId = Date.now();
         chatSessions.unshift({
-            id:    Date.now(),
-            title: title,
-            time:  new Date().toLocaleDateString('th-TH', { day:'numeric', month:'short' })
+            id: currentSessionId, title: autoTitle, time: nowLabel,
+            messages: JSON.parse(JSON.stringify(conversationHistory))
         });
-        if (chatSessions.length > 30) chatSessions.pop();
-        localStorage.setItem('agri_chat_sessions', JSON.stringify(chatSessions));
-        document.getElementById('chatTitle').textContent = title;
-        renderHistory();
     }
+
+    if (chatSessions.length > 30) chatSessions.pop();
+    localStorage.setItem('agri_chat_sessions', JSON.stringify(chatSessions));
+
+    const active = chatSessions.find(s => s.id === currentSessionId);
+    document.getElementById('chatTitle').textContent = active ? active.title : autoTitle;
+    renderHistory(historySearch.value);
+}
+
+// Switch to a previously saved chat, restoring its full conversation.
+function openSession(session) {
+    if (session.id === currentSessionId) {
+        if (window.innerWidth <= 768) sidebar.classList.remove('open');
+        return;
+    }
+    persistCurrentSession(); // don't lose whatever is currently on screen
+
+    Array.from(messagesArea.querySelectorAll('.msg-row')).forEach(el => el.remove());
+    conversationHistory = JSON.parse(JSON.stringify(session.messages || []));
+    currentSessionId = session.id;
+    lastAIBubble = null;
+
+    if (conversationHistory.length) {
+        welcomeState.style.display = 'none';
+        conversationHistory.forEach(m => {
+            const bubble = appendMessage(m.role === 'user' ? 'user' : 'ai', m.content);
+            if (m.role === 'assistant') lastAIBubble = bubble;
+        });
+    } else {
+        welcomeState.style.display = 'flex';
+    }
+
+    document.getElementById('chatTitle').textContent = session.title || 'AgriFuture AI Chat';
+    renderHistory(historySearch.value);
+    if (window.innerWidth <= 768) sidebar.classList.remove('open');
 }
 
 function renderHistory(filter = '') {
@@ -492,9 +588,9 @@ function renderHistory(filter = '') {
         return;
     }
 
-    filtered.slice(0, 20).forEach(session => {
+    filtered.slice(0, 30).forEach(session => {
         const item = document.createElement('div');
-        item.className = 'history-item';
+        item.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
         item.innerHTML = `
             <i class="fa-regular fa-message icon"></i>
             <span class="history-title">${escHtml(session.title)}</span>
@@ -505,14 +601,14 @@ function renderHistory(filter = '') {
             e.stopPropagation();
             chatSessions = chatSessions.filter(s => s.id !== session.id);
             localStorage.setItem('agri_chat_sessions', JSON.stringify(chatSessions));
+            if (session.id === currentSessionId) {
+                currentSessionId = null;
+                resetChat();
+            }
             renderHistory(historySearch.value);
             showToast('ลบประวัติแล้ว', 'fa-solid fa-trash-can');
         });
-        item.addEventListener('click', () => {
-            // Clicking history just sets the title (full restore would need stored messages)
-            document.getElementById('chatTitle').textContent = session.title;
-            if (window.innerWidth <= 768) sidebar.classList.remove('open');
-        });
+        item.addEventListener('click', () => openSession(session));
         historyList.appendChild(item);
     });
 }

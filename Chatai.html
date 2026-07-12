@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AgriFuture AI — แชทเกษตร</title>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="Chatai.css">
 </head>
@@ -16,13 +16,12 @@
         </video>
     </div>
     <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
 
     <!-- ════════════════ SIDEBAR ════════════════ -->
     <aside class="sidebar" id="sidebar">
 
         <div class="sidebar-logo">
-            <img src="img/logo.png" alt="logo">
+            <img src="img/logo.png" alt="AgriFuture AI">
             <span class="logo-text">AgriFuture <span>AI</span></span>
         </div>
 
@@ -42,7 +41,7 @@
         <div class="history-search-wrap">
             <i class="fa-solid fa-magnifying-glass"></i>
             <input type="text" class="history-search" id="historySearch" placeholder="ค้นหาประวัติ...">
-        </div>  
+        </div>
         <div class="history-list" id="historyList">
             <div class="history-empty">
                 <i class="fa-regular fa-clock"></i>
@@ -78,7 +77,7 @@
     <div class="chat-wrapper">
 
         <header class="chat-topbar">
-            <button class="sidebar-toggle" id="sidebarToggle">
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="เปิด/ปิดเมนู">
                 <i class="fa-solid fa-bars"></i>
             </button>
             <div class="topbar-title">
@@ -99,7 +98,8 @@
         <div class="messages-area" id="messagesArea">
             <div class="welcome-state" id="welcomeState">
                 <div class="welcome-icon">
-                    <i class="fa-solid fa-seedling"></i>
+                    <img src="img/logo.png" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <i class="fa-solid fa-seedling" style="display:none;"></i>
                 </div>
                 <h2>จะเริ่มต้นจากตรงไหนดี?</h2>
                 <p>ถามเรื่องการเกษตร เทคโนโลยีเกษตร หรือข่าวสารการเกษตรได้เลย</p>

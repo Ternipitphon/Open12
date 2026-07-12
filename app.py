@@ -1,13 +1,13 @@
 import os
 import json
 import time
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__)
 
 # อนุญาต CORS สำหรับทุกโดเมนและรองรับ Content-Type: application/json ข้ามโดเมนได้ 100%
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -26,13 +26,6 @@ def generate_content_with_retry(model, prompt, retries=5, backoff_in_seconds=2):
                 time.sleep(backoff_in_seconds * (2 ** i))
                 continue
             raise e
-
-# --- Route สำหรับหน้าแรก (แก้ปัญหา 404 Not Found) ---
-@app.route('/')
-def index():
-    # เสิร์ฟไฟล์ Open.html เป็นหน้าแรกของเว็บ (ต้องสะกดตัวพิมพ์ใหญ่-เล็กให้ตรงกับชื่อไฟล์จริงเป๊ะ)
-    return send_from_directory('.', 'Open.html')
-
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_crop():
@@ -148,7 +141,5 @@ def analyze_crop():
         }), 500
 
 if __name__ == '__main__':
-    # ดึงพอร์ตจาก Environment Variable "PORT" ที่ Render กำหนดให้อัตโนมัติ
-    # หากไม่มี (เช่นตอนรันบนเครื่องตัวเอง) จะใช้พอร์ต 5001 แทน
-    port = int(os.environ.get("PORT", 5001))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # เปลี่ยนย้าย Port รันหนีระบบ Chatbot เก่าที่ขวางพอร์ตอยู่ เพื่อตัดปัญหาพอร์ตทับซ้อนกัน 100%
+    app.run(host='0.0.0.0', port=5001, debug=True)
